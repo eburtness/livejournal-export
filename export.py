@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 import json
 import os
@@ -19,6 +19,9 @@ NEWLINES = re.compile('(\s*\n){3,}')
 
 SLUGS = {}
 
+DOWNLOAD = False
+OUTPUT = False
+
 # TODO: lj-cut
 
 
@@ -27,11 +30,16 @@ def fix_user_links(json):
     if 'subject' in json:
         json['subject'] = USER.sub(r'\1', json['subject'])
 
-    if 'body' in json:
+    if 'body' in json and json['body']:
         json['body'] = USER.sub(r'\1', json['body'])
 
 
 def json_to_html(json):
+    if json['body']:
+        b = TAGLESS_NEWLINES.sub('<br>\n', json['body'])
+    else:
+        b = ''
+
     return """<!doctype html>
 <meta charset="utf-8">
 <title>{subject}</title>
@@ -41,7 +49,7 @@ def json_to_html(json):
 </article>
 """.format(
         subject=json['subject'] or json['date'],
-        body=TAGLESS_NEWLINES.sub('<br>\n', json['body'])
+        body=b
     )
 
 
@@ -65,7 +73,10 @@ def get_slug(json):
 
 
 def json_to_markdown(json):
-    body = TAGLESS_NEWLINES.sub('<br>', json['body'])
+    if json['body']:
+        body = TAGLESS_NEWLINES.sub('<br>', json['body'])
+    else:
+        body = ''
 
     h = html2text.HTML2Text()
     h.body_width = 0
@@ -162,7 +173,7 @@ def save_as_html(id, subfolder, json_post, post_comments_html):
     with open('posts-html/{0}/{1}.html'.format(subfolder, id), 'w', encoding='utf-8') as f:
         f.writelines(json_to_html(json_post))
         if post_comments_html:
-            f.write('\n<h2>Комментарии</h2>\n' + post_comments_html)
+            f.write('\n<h2>Comments</h2>\n' + post_comments_html)
 
 
 def combine(all_posts, all_comments):
@@ -184,13 +195,14 @@ def combine(all_posts, all_comments):
 
         fix_user_links(json_post)
 
-        save_as_json(id, json_post, post_comments)
-        save_as_html(id, subfolder, json_post, post_comments_html)
-        save_as_markdown(id, subfolder, json_post, post_comments_html)
+        if OUTPUT:
+            save_as_json(id, json_post, post_comments)
+            save_as_html(id, subfolder, json_post, post_comments_html)
+            save_as_markdown(id, subfolder, json_post, post_comments_html)
 
 
 if __name__ == '__main__':
-    if True:
+    if DOWNLOAD:
         all_posts = download_posts()
         all_comments = download_comments()
 
