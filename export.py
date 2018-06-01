@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+import sys
 import os
 import re
 import html2text
@@ -10,6 +11,7 @@ from datetime import datetime
 from operator import itemgetter
 from download_posts import download_posts
 from download_comments import download_comments
+from auth import config
 
 
 TAG = re.compile(r'\[!\[(.*?)\]\(http:\/\/utx.ambience.ru\/img\/.*?\)\]\(.*?\)')
@@ -18,11 +20,6 @@ TAGLESS_NEWLINES = re.compile('(?<!>)\n')
 NEWLINES = re.compile('(\s*\n){3,}')
 
 SLUGS = {}
-
-DOWNLOAD = False
-OUTPUT = False
-
-# TODO: lj-cut
 
 
 def fix_user_links(json):
@@ -176,10 +173,19 @@ def save_as_html(id, subfolder, json_post, post_comments_html):
             f.write('\n<h2>Comments</h2>\n' + post_comments_html)
 
 
+def load_from_json(file):
+    try:
+        f = open(file, 'r', encoding='utf-8')
+    except IOError as err:
+        print("\nError opening file: {0}".format(err))
+        sys.exit('Failed to find data. Exiting.')
+    else:
+        print('Loading from file: ' + file + "\n")
+        with f:
+            return json.load(f)
+
+
 def combine(all_posts, all_comments):
-    os.makedirs('posts-html', exist_ok=True)
-    os.makedirs('posts-markdown', exist_ok=True)
-    os.makedirs('comments-markdown', exist_ok=True)
 
     posts_comments = group_comments_by_post(all_comments)
 
@@ -195,21 +201,29 @@ def combine(all_posts, all_comments):
 
         fix_user_links(json_post)
 
-        if OUTPUT:
+        if config['EXPORT_JSON']:
             save_as_json(id, json_post, post_comments)
+
+        if config['EXPORT_HTML']:
+            os.makedirs('posts-html', exist_ok=True)
             save_as_html(id, subfolder, json_post, post_comments_html)
+
+        if config['EXPORT_MARKDOWN']:
+            os.makedirs('posts-markdown', exist_ok=True)
+            os.makedirs('comments-markdown', exist_ok=True)
             save_as_markdown(id, subfolder, json_post, post_comments_html)
 
 
 if __name__ == '__main__':
-    if DOWNLOAD:
-        all_posts = download_posts()
-        all_comments = download_comments()
 
+    if config['GET_POSTS']:
+        all_posts = download_posts()
     else:
-        with open('posts-json/all.json', 'r', encoding='utf-8') as f:
-            all_posts = json.load(f)
-        with open('comments-json/all.json', 'r', encoding='utf-8') as f:
-            all_comments = json.load(f)
+        all_posts = load_from_json('posts-json/all.json')
+
+    if config['GET_COMMENTS']:
+        all_comments = download_comments()
+    else:
+        all_comments = load_from_json('comments-json/all.json')
 
     combine(all_posts, all_comments)

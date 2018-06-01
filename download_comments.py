@@ -12,7 +12,7 @@ from auth import cookies, headers
 
 def fetch_xml(params):
     response = requests.get(
-        'http://www.livejournal.com/export_comments.bml',
+        'https://www.livejournal.com/export_comments.bml',
         params=params,
         headers=headers,
         cookies=cookies
@@ -94,7 +94,7 @@ def download_comments():
     while start_id < max_id:
         start_id, comments = get_more_comments(start_id + 1, users)
         all_comments.extend(comments)
-        print('Sleeping 1 sec between comment batches')
+        # print('Sleeping 1 sec between comment batches')
         time.sleep(1)
 
     with open('comments-json/all.json', 'w', encoding='utf-8') as f:
