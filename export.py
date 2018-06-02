@@ -9,9 +9,8 @@ import markdown
 from bs4 import BeautifulSoup
 from datetime import datetime
 from operator import itemgetter
-from download_posts import download_posts
-from download_comments import download_comments
-from auth import config
+
+from livejournaldl import LiveJournalDL
 
 
 TAG = re.compile(r'\[!\[(.*?)\]\(http:\/\/utx.ambience.ru\/img\/.*?\)\]\(.*?\)')
@@ -216,13 +215,25 @@ def combine(all_posts, all_comments):
 
 if __name__ == '__main__':
 
+    # Load config from file
+    with open('config.json', 'r', encoding='utf-8') as f:
+        config = json.load(f)
+
+    if config['GET_POSTS'] or config['GET_COMMENTS']:
+        # Log in to LiveJournal
+        lj = LiveJournalDL()
+        if lj.login(config['USERNAME'], config['PASSWORD']):
+            print('\nLogged into LiveJournal as ' + config['USERNAME'] + "...\n")
+        else:
+            sys.exit('Logging into LiveJournal failed. Check username and password in config.json.')
+
     if config['GET_POSTS']:
-        all_posts = download_posts()
+        all_posts = lj.download_posts(config['BEGIN_YEAR'], config['END_YEAR'])
     else:
         all_posts = load_from_json('posts-json/all.json')
 
     if config['GET_COMMENTS']:
-        all_comments = download_comments()
+        all_comments = lj.download_comments()
     else:
         all_comments = load_from_json('comments-json/all.json')
 
