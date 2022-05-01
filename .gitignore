@@ -8,4 +8,6 @@ posts-xml
 posts-json
 posts-markdown
 posts-html
+posts-dayone
 config.json
+.DS_Store

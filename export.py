@@ -3,6 +3,7 @@
 import json
 import sys
 import os
+import subprocess
 import re
 import html2text
 import markdown
@@ -17,6 +18,11 @@ TAG = re.compile(r'\[!\[(.*?)\]\(http:\/\/utx.ambience.ru\/img\/.*?\)\]\(.*?\)')
 USER = re.compile(r'<lj user="?(.*?)"?>')
 TAGLESS_NEWLINES = re.compile('(?<!>)\n')
 NEWLINES = re.compile('(\s*\n){3,}')
+
+# Special Markdown characters to escape.
+# Not included because I don't think they'll cause an issue:
+# '{', '}', '.', '!', '(', ')'
+MDCHARS = ['*', '_', '[', ']', '#', '+', '-']
 
 SLUGS = {}
 
@@ -99,6 +105,35 @@ date: {date}{tags}
 """.format(**json)
 
 
+# Converts to markdown formatted for Day One
+def json_to_dayone(json):
+    if json['body']:
+        body = TAGLESS_NEWLINES.sub('<br>', json['body'])
+    else:
+        body = ''
+
+    h = html2text.HTML2Text()
+    h.body_width = 0
+    h.unicode_snob = True
+    body = h.handle(body)
+    body = NEWLINES.sub('\n\n', body)
+
+    # read UTX tags
+    tags = TAG.findall(body)
+    json['tags'] = len(tags) and '\ntags: {0}'.format(', '.join(tags)) or ''
+
+    # remove UTX tags from text
+    json['body'] = TAG.sub('', body).strip()
+
+    json['slug'] = get_slug(json)
+    json['subject'] = json['subject'] or json['date']
+
+    return """# {subject}
+
+{body}
+""".format(**json)
+
+
 def group_comments_by_post(comments):
     posts = {}
 
@@ -149,10 +184,55 @@ def comments_to_html(comments):
     return '<ul>\n{0}\n</ul>'.format('\n'.join(map(comment_to_li, sorted(comments, key=itemgetter('id')))))
 
 
+# Format comments for Day One export
+def comment_to_dayone(comment):
+    if 'state' in comment and comment['state'] == 'D':
+        return ''
+
+    md = ''
+
+    if 'author' in comment:
+        md += '> **[{0}](https://{0}.livejournal.com/)**\n'.format(comment['author'])
+    else:
+        md += '> _anonymous_\n'
+
+    if 'subject' in comment:
+        md += '> **{0}**\n'.format(comment['subject'])
+
+    md += '> \n'
+
+    if 'body' in comment:
+        b = comment['body']
+        # Escape markdown special characters
+        for c in MDCHARS:
+            if c in b:
+                b = b.replace(c, "\\" + c)
+        md += '> ' + '> '.join(b.splitlines(True)) + '\n'
+
+    # If this comment has children, process them recursively
+    if len(comment['children']) > 0:
+        md += '>' + '>'.join(comments_to_dayone(comment['children']).splitlines(True)) + '\n'
+
+    return md
+
+
+# Format comments for Day One export
+def comments_to_dayone(comments):
+    return '\n{0}'.format('\n'.join(map(comment_to_dayone, sorted(comments, key=itemgetter('id')))))
+
+
 def save_as_json(id, json_post, post_comments):
     json_data = {'id': id, 'post': json_post, 'comments': post_comments}
     with open('posts-json/{0}.json'.format(id), 'w', encoding='utf-8') as f:
         f.write(json.dumps(json_data, ensure_ascii=False, indent=2))
+
+
+def save_as_html(id, subfolder, json_post, post_comments_html):
+    os.makedirs('posts-html/{0}'.format(subfolder), exist_ok=True)
+    with open('posts-html/{0}/{1}.html'.format(subfolder, id), 'w', encoding='utf-8') as f:
+        f.writelines(json_to_html(json_post))
+        if post_comments_html:
+            f.write('\n<h2>Comments</h2>\n' + post_comments_html)
 
 
 def save_as_markdown(id, subfolder, json_post, post_comments_html):
@@ -164,12 +244,38 @@ def save_as_markdown(id, subfolder, json_post, post_comments_html):
             f.write(post_comments_html)
 
 
-def save_as_html(id, subfolder, json_post, post_comments_html):
-    os.makedirs('posts-html/{0}'.format(subfolder), exist_ok=True)
-    with open('posts-html/{0}/{1}.html'.format(subfolder, id), 'w', encoding='utf-8') as f:
-        f.writelines(json_to_html(json_post))
-        if post_comments_html:
-            f.write('\n<h2>Comments</h2>\n' + post_comments_html)
+# Added by Erick for Day One format
+def save_as_dayone(id, subfolder, json_post, post_comments):
+    os.makedirs('posts-dayone/{0}'.format(subfolder), exist_ok=True)
+
+    with open('posts-dayone/{0}/{1}.md'.format(subfolder, id), 'w', encoding='utf-8') as f:
+        # Write out to text file
+        f.write(json_to_dayone(json_post))
+        if post_comments:
+            f.write('\n\n')
+            f.write(post_comments)
+
+    # Send to Day One
+    tags = []
+    if config.get('DAYONE_TAGS'):
+        tags += config.get('DAYONE_TAGS').split(' ')
+    if json_post.get('mood'):
+        tags.append(json_post.get('mood'))
+    cmd = [
+        config['DAYONE_CMD'],
+        '--date="{0}"'.format(json_post['eventtime']),
+        '--journal', config['DAYONE_JOURNAL']
+    ]
+    if tags:
+        cmd.append('--tags')
+        cmd += tags
+        cmd.append('--')
+    cmd.append('new')
+
+    with open('posts-dayone/{0}/{1}.md'.format(subfolder, id), 'r', encoding='utf-8') as f:
+        out = subprocess.check_output(cmd, stdin=f)
+        print('Day One: ' + out.decode().strip())
+
 
 
 def load_from_json(file):
@@ -197,6 +303,7 @@ def combine(all_posts, all_comments):
 
         post_comments = jitemid in posts_comments and nest_comments(posts_comments[jitemid]) or None
         post_comments_html = post_comments and comments_to_html(post_comments) or ''
+        post_comments_dayone = post_comments and comments_to_dayone(post_comments) or ''
 
         fix_user_links(json_post)
 
@@ -211,6 +318,11 @@ def combine(all_posts, all_comments):
             os.makedirs('posts-markdown', exist_ok=True)
             os.makedirs('comments-markdown', exist_ok=True)
             save_as_markdown(id, subfolder, json_post, post_comments_html)
+
+        if config['EXPORT_DAYONE']:
+            os.makedirs('posts-dayone', exist_ok=True)
+            save_as_dayone(id, subfolder, json_post, post_comments_dayone)
+
 
 
 if __name__ == '__main__':
