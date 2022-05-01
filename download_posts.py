@@ -15,7 +15,7 @@ YEARS = range(2003, 2019)  # first to (last + 1)
 def fetch_month_posts(year, month):
     print('Fetching posts {}-{}'.format(year, month))
     response = requests.post(
-        'http://www.livejournal.com/export_do.bml',
+        'https://www.livejournal.com/export_do.bml',
         headers=headers,
         cookies=cookies,
         data={
