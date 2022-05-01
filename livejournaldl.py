@@ -123,7 +123,7 @@ class LiveJournalDL:
         users = self.get_users_map(metadata)
 
         all_comments = []
-        start_id = -1
+        start_id = 0
         max_id = int(metadata.find('maxid').text)
         while start_id < max_id:
             start_id, comments = self.get_more_comments(start_id + 1, users)

@@ -54,5 +54,5 @@ Requires Python 3 and the following modules:
 
 * `html2text`
 * `markdown`
-* `BeautifulSoup`
+* `beautifulsoup4`
 * `requests`
