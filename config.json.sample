@@ -1,9 +1,0 @@
-{
-  "USERNAME": "xxx",
-  "PASSWORD": "yyy",
-  "GET_POSTS": true,
-  "GET_COMMENTS": true,
-  "EXPORT_JSON": false,
-  "EXPORT_HTML": false,
-  "EXPORT_MARKDOWN": false
-}

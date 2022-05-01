@@ -1,0 +1,15 @@
+{
+  "USERNAME": "xxx",
+  "PASSWORD": "yyy",
+  "GET_POSTS": true,
+  "GET_COMMENTS": true,
+  "BEGIN_YEAR": 2003,
+  "END_YEAR": 2006,
+  "EXPORT_JSON": true,
+  "EXPORT_HTML": true,
+  "EXPORT_MARKDOWN": true,
+  "EXPORT_DAYONE": true,
+  "DAYONE_CMD": "/usr/local/bin/dayone2",
+  "DAYONE_JOURNAL": "LiveJournal",
+  "DAYONE_TAGS": "LiveJournal"
+}
