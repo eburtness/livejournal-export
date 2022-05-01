@@ -12,7 +12,7 @@ from auth import cookies, headers
 
 def fetch_xml(params):
     response = requests.get(
-        'http://www.livejournal.com/export_comments.bml',
+        'https://www.livejournal.com/export_comments.bml',
         params=params,
         headers=headers,
         cookies=cookies
@@ -89,7 +89,7 @@ def download_comments():
     users = get_users_map(metadata)
 
     all_comments = []
-    start_id = -1
+    start_id = 0
     max_id = int(metadata.find('maxid').text)
     while start_id < max_id:
         start_id, comments = get_more_comments(start_id + 1, users)
@@ -105,3 +105,4 @@ def download_comments():
 
 if __name__ == '__main__':
     download_comments()
+    
